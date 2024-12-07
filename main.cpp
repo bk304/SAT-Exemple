@@ -40,14 +40,30 @@ vector<vector<Minisat::Lit>> P(const vector<Minisat::Lit>& A, int k) {
     return result;
 }
 
-void limitLivingCells(Minisat::Solver& solver, vector<Minisat::Lit> const& living_cells, int k){
-    vector<vector<Minisat::Lit>> A = P(living_cells, k);
+void addDeadCellsClauseWithRelaxation(Minisat::Solver& solver, vector<Minisat::Lit> const& cell_lits, vector<Minisat::Lit> const& relaxation_lits){
+    for(int i=0; i<cell_lits.size(); ++i){
+        Minisat::vec<Minisat::Lit> clause;
+        clause.push(~(cell_lits[i]));
+        clause.push(relaxation_lits[i]);
+        solver.addClause(clause);
+    }
+}
+
+void limitQntRelaxedClausules(Minisat::Solver& solver, vector<Minisat::Lit> const& relaxation_lits, int k){
+    vector<vector<Minisat::Lit>> A = P(relaxation_lits, k);
+    int q = 0;
     for (auto& subset : A) {
         Minisat::vec<Minisat::Lit> result;
         vector_to_MinisatVec(subset, result);
-        solver.addClause(result);
-    }
 
+        Minisat::vec<Minisat::Lit> clause;
+        for (size_t i = 0; i < result.size(); ++i) {
+            clause.push(~result[i]);
+        }
+        solver.addClause(clause);
+        q++;
+    }
+    printf("qnt=%d\n", q);
 }
 
 void loneliness(Minisat::Solver& solver, vector<Minisat::Lit> const& neighbors){
@@ -55,6 +71,7 @@ void loneliness(Minisat::Solver& solver, vector<Minisat::Lit> const& neighbors){
     for (auto& subset : A) {
         Minisat::vec<Minisat::Lit> result;
         vector_to_MinisatVec(subset, result);
+
         solver.addClause(result);
     }
 }
@@ -180,16 +197,36 @@ int main(void){
         }
     }
 
+    // criarei uma clausula para cada celula que obriga ela a estar morta caso a variavel de relaxamento seja falso.
+    // a ideia é ir aumentando a quantidade de variaveis relaxadas até que haja um resultado SAT.
+    vector<Minisat::Var> relaxation_vars; 
+    vector<Minisat::Lit> cells_lit;
+
+
     vector<vector<Minisat::Var>> previous(n, vector<Minisat::Var>(m));
-    vector<Minisat::Lit> living_cells;
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < m; ++j) {
             previous[i][j] = solver.newVar();
-            living_cells.push_back(Minisat::mkLit(previous[i][j]));
+            relaxation_vars.push_back(solver.newVar());
+            cells_lit.push_back(Minisat::mkLit(previous[i][j]));
         }
     }
 
-    //limitLivingCells(solver, living_cells, 10);
+    vector<Minisat::Lit> relaxation_lits_1;
+    for(auto& var : relaxation_vars){
+        relaxation_lits_1.push_back(Minisat::mkLit(var));
+    }
+    addDeadCellsClauseWithRelaxation(solver, cells_lit, relaxation_lits_1);
+
+    printf("Ponto 1\n");
+
+    vector<Minisat::Lit> relaxation_lits_2;
+    for(auto& var : relaxation_vars){
+        relaxation_lits_2.push_back(Minisat::mkLit(var));
+    }
+    limitQntRelaxedClausules(solver, relaxation_lits_2, 5);
+
+    printf("Ponto 2\n");
 
     // bordas são todas mortas
     for (size_t i = 0; i < n; ++i) {
@@ -227,6 +264,7 @@ int main(void){
         }
     }
 
+    //printf("Resolvendo...\n");
 
     if (solver.solve()) {
         // Solução encontrada
