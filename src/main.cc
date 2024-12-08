@@ -391,6 +391,11 @@ int main(void) {
         }
     }
 
+    if (best == -1) {
+        cerr << "Nenhuma solução encontrada para qualquer valor de t.\n";
+        return -1;
+    }
+
     cerr << "valor ideal é " << best << "\n";
     solve(board, best, true);
 
