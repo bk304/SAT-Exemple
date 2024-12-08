@@ -49,21 +49,70 @@ void addDeadCellsClauseWithRelaxation(Minisat::Solver& solver, vector<Minisat::L
     }
 }
 
-void limitQntRelaxedClausules(Minisat::Solver& solver, vector<Minisat::Lit> const& relaxation_lits, int k){
-    vector<vector<Minisat::Lit>> A = P(relaxation_lits, k);
-    int q = 0;
-    for (auto& subset : A) {
-        Minisat::vec<Minisat::Lit> result;
-        vector_to_MinisatVec(subset, result);
+// Limitarei a quantidade máxima de variáveis relaxadas habilitadas usando sequential counter encoding, criado por Sinz.
+void limitQntRelaxedClausules(Minisat::Solver& solver, vector<Minisat::Var> const& relaxation_vars, int k){
+    int n = relaxation_vars.size();
 
+    vector<vector<Minisat::Var>> R(n, vector<Minisat::Var>(k, solver.newVar()));
+
+
+    printf("começando\n");
+
+
+    // 1
+    for(int i=0; i<n-1; ++i){
         Minisat::vec<Minisat::Lit> clause;
-        for (size_t i = 0; i < result.size(); ++i) {
-            clause.push(~result[i]);
-        }
+        clause.push(~Minisat::mkLit(relaxation_vars[i]));
+        clause.push(Minisat::mkLit(R[i][0]));
         solver.addClause(clause);
-        q++;
     }
-    printf("qnt=%d\n", q);
+
+    printf("regra 1 pronta\n");
+
+    // 2
+    for(int j=1; j<k; ++j){
+        Minisat::vec<Minisat::Lit> clause;
+        clause.push(~Minisat::mkLit(R[0][j]));
+        solver.addClause(clause);
+    }
+
+    printf("regra 2 pronta\n");
+
+    // 3
+    for(int i=1; i<n-1; ++i){
+        for(int j=0; j<k; ++j){
+            Minisat::vec<Minisat::Lit> clause;
+            clause.push(~Minisat::mkLit(R[i-1][j]));
+            clause.push(Minisat::mkLit(R[i][j]));
+            solver.addClause(clause);
+        }
+    }
+
+    printf("regra 3 pronta\n");
+
+    // 4
+    for(int i=1; i<n-1; ++i){
+        for(int j=1; j<k; ++j){
+            Minisat::vec<Minisat::Lit> clause;
+            clause.push(~Minisat::mkLit(relaxation_vars[i]));
+            clause.push(~Minisat::mkLit(R[i-1][j-1]));
+            clause.push(Minisat::mkLit(R[i][j]));
+            solver.addClause(clause);
+        }
+    }
+
+    printf("regra 4 pronta\n");
+
+    // 5
+    for(int i=1; i<n; ++i){
+        Minisat::vec<Minisat::Lit> clause;
+        clause.push(~Minisat::mkLit(relaxation_vars[i]));
+        clause.push(Minisat::mkLit(R[i-1][k-1]));
+        solver.addClause(clause);
+    }
+
+    printf("regra 5 pronta\n");
+
 }
 
 void loneliness(Minisat::Solver& solver, vector<Minisat::Lit> const& neighbors){
@@ -220,11 +269,7 @@ int main(void){
 
     printf("Ponto 1\n");
 
-    vector<Minisat::Lit> relaxation_lits_2;
-    for(auto& var : relaxation_vars){
-        relaxation_lits_2.push_back(Minisat::mkLit(var));
-    }
-    limitQntRelaxedClausules(solver, relaxation_lits_2, 5);
+    limitQntRelaxedClausules(solver, relaxation_vars, 6);
 
     printf("Ponto 2\n");
 
