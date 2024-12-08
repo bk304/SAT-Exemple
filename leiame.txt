@@ -1,0 +1,15 @@
+Trabalho de IA por:
+Bruno Krügel - GRR20206874
+Henrique Colini - GRR20203912
+
+Reverter o estado do Jogo da Vida minimizando o número de células vivas.
+
+Neste trabalho, o problema de reverter o estado final do Jogo da Vida para determinar seu estado inicial foi modelado como um problema de satisfatibilidade (SAT), utilizando a biblioteca MiniSat para sua resolução. O objetivo principal foi encontrar a configuração inicial com o número mínimo de células vivas que resulta no estado final fornecido.
+
+A estratégia consiste em introduzir variáveis de relaxamento associadas a cada célula, permitindo que estas sejam forçadas a estarem mortas a menos que as variáveis de relaxamento estejam ativadas. Para limitar o número máximo de variáveis relaxadas que podem estar ativas ao mesmo tempo, foi utilizado o sequential counter encoder, desenvolvido por Sinz. O valor K, que define essa quantidade máxima de variáveis relaxadas ativas, é ajustado iterativamente até que um resultado final seja encontrado.
+
+Uma otimização significativa foi a aplicação de uma busca binária sobre os valores de K. Caso o resultado seja UNSAT, K é insuficiente e precisa ser aumentado. Caso seja SAT, K é reduzido até identificar o menor valor possível em que o problema ainda é satisfatório. Assim, garante-se que K+1 seja o menor número de células vivas na configuração inicial.
+
+A implementação deste trabalho não é perfeita, e encontrar uma solução pode ser demorado, especialmente para entradas grandes em que o número mínimo de células vivas não é nem próximo de zero e nem próximo do número total de células. Nessas situações, o SAT solver demora para achar a solução de algumas interações, logo, também demora para convergir ao resultado ideal.
+
+O resultado final é impresso na saída padrão (stdout) no mesmo formato usado para a entrada, o que permite testar o estado revertido em um simulador comum de Jogo da Vida e verificar a saída do jogo coincide com a entrada fornecida. Além disso, informações adicionais sobre as iterações realizadas pelo algoritmo são impressas na saída de erro (stderr).
