@@ -276,7 +276,11 @@ void life(Minisat::Solver& solver, vector<Minisat::Lit> const& neighbors) {
     }
 }
 
-bool solve(vector<vector<int>>& board, int k, bool printResult) {
+bool solve(
+    vector<vector<int>>& board,
+    int k,
+    std::map<int, vector<vector<int>>>& resultBoards
+) {
     int n = board.size();
     int m = board[0].size();
     Minisat::Solver solver;
@@ -344,28 +348,25 @@ bool solve(vector<vector<int>>& board, int k, bool printResult) {
 
     cerr << "Resolvendo... k= " << k << "\n";
 
-    bool result = solver.solve();
+    bool isSat = solver.solve();
 
-    if (printResult) {
-        if (result) {
-            cout << n - 2 << " " << m - 2 << endl;
-            for (int i = 1; i < n - 1; ++i) { // Ignorar bordas
-                for (int j = 1; j < m - 1; ++j) {
-                    cout
-                        << (solver.modelValue(previous[i][j])
-                                    == (Minisat::lbool((uint8_t)0))
-                                ? 1
-                                : 0)
-                        << " ";
-                }
-                cout << endl;
+    if (isSat) {
+        vector<vector<int>> result(n, vector<int>(m, 0));
+
+        for (int i = 1; i < n - 1; ++i) { // Ignorar bordas
+            for (int j = 1; j < m - 1; ++j) {
+                result[i][j] =
+                    (solver.modelValue(previous[i][j])
+                             == (Minisat::lbool((uint8_t)0))
+                         ? 1
+                         : 0);
             }
-        } else {
-            cerr << "Nenhuma solução encontrada para qualquer valor de t.\n";
         }
+
+        resultBoards[k] = result;
     }
 
-    return result;
+    return isSat;
 }
 
 int main(void) {
@@ -373,6 +374,8 @@ int main(void) {
     cin >> n >> m;
     n += 2;
     m += 2; // adiciona as bordas
+
+    std::map<int, vector<vector<int>>> resultBoards;
 
     vector<vector<int>> board(n, vector<int>(m, 0));
     for (int i = 1; i < n - 1; ++i) {
@@ -386,7 +389,7 @@ int main(void) {
 
     while (low <= high) {
         int k = low + (high - low) / 2;
-        if (solve(board, k, false)) {
+        if (solve(board, k, resultBoards)) {
             best = k;
             high = k - 1;
         } else {
@@ -394,13 +397,20 @@ int main(void) {
         }
     }
 
-    if (best == -1) {
+    if (best != -1) {
+        cerr << "valor ideal é " << best << "\n";
+
+        cout << n - 2 << " " << m - 2 << endl;
+        for (int i = 1; i < n - 1; ++i) { // Ignorar bordas
+            for (int j = 1; j < m - 1; ++j) {
+                cout << resultBoards[best][i][j] << " ";
+            }
+            cout << endl;
+        }
+    } else {
         cerr << "Nenhuma solução encontrada para qualquer valor de t.\n";
         return -1;
     }
-
-    cerr << "valor ideal é " << best << "\n";
-    solve(board, best, true);
 
     return 0;
 }
