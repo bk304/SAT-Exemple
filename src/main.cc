@@ -12,6 +12,15 @@ As regras que definem a evolução de um estado para outro do jogo são:
   - toda célula viva com dois ou três vizinhos vivos permanece viva.
 */
 
+void addUnsatResult(
+    int n,
+    int m,
+    std::map<int, vector<vector<int>>>& resultBoards
+) {
+    vector<vector<int>> result(n - 2, vector<int>(m - 2, 0));
+    resultBoards[-1] = result;
+}
+
 void vector_to_MinisatVec(
     vector<Minisat::Lit>& v,
     Minisat::vec<Minisat::Lit>& result
@@ -40,14 +49,15 @@ void generateSubsets(
     }
 }
 
-vector<vector<Minisat::Lit>> P(const vector<Minisat::Lit>& A, int k) {
+vector<vector<Minisat::Lit>>
+subsetsOfSizeK(const vector<Minisat::Lit>& A, int k) {
     vector<vector<Minisat::Lit>> result;
     vector<Minisat::Lit> current;
     generateSubsets(A, k, 0, current, result);
     return result;
 }
 
-void addDeadCellsClauseWithRelaxation(
+void encodeRelaxedDeadCells(
     Minisat::Solver& solver,
     vector<Minisat::Lit> const& cell_lits,
     vector<Minisat::Lit> const& relaxation_lits,
@@ -64,81 +74,81 @@ void addDeadCellsClauseWithRelaxation(
 
 // Limitarei a quantidade máxima de variáveis relaxadas habilitadas usando
 // sequential counter encoding, criado por Sinz.
-void limitQntRelaxedClausules(
+void enforceRelaxationBound(
     Minisat::Solver& solver,
-    vector<Minisat::Var> const& relaxation_vars,
+    vector<Minisat::Var> const& relaxationVars,
     int k
 ) {
     if (k == 0)
         return;
 
-    int n = relaxation_vars.size();
+    int n = relaxationVars.size();
 
-    vector<vector<Minisat::Var>> R(n);
+    vector<vector<Minisat::Var>> counterRegisterSet(n);
     for (int i = 0; i < n; ++i) {
-        R[i].resize(k);
+        counterRegisterSet[i].resize(k);
         for (int j = 0; j < k; ++j) {
-            R[i][j] = solver.newVar(false, true);
+            counterRegisterSet[i][j] = solver.newVar(false, true);
         }
     }
 
     {
         Minisat::vec<Minisat::Lit> clause;
-        clause.push(~Minisat::mkLit(relaxation_vars[0]));
-        clause.push(Minisat::mkLit(R[0][0]));
+        clause.push(~Minisat::mkLit(relaxationVars[0]));
+        clause.push(Minisat::mkLit(counterRegisterSet[0][0]));
         solver.addClause(clause);
     }
 
     for (int j = 1; j < k; ++j) {
         Minisat::vec<Minisat::Lit> clause;
-        clause.push(~Minisat::mkLit(R[0][j]));
+        clause.push(~Minisat::mkLit(counterRegisterSet[0][j]));
         solver.addClause(clause);
     }
 
     for (int i = 1; i < n - 1; ++i) {
         {
             Minisat::vec<Minisat::Lit> clause;
-            clause.push(~Minisat::mkLit(relaxation_vars[i]));
-            clause.push(Minisat::mkLit(R[i][0]));
+            clause.push(~Minisat::mkLit(relaxationVars[i]));
+            clause.push(Minisat::mkLit(counterRegisterSet[i][0]));
             solver.addClause(clause);
         }
 
         {
             Minisat::vec<Minisat::Lit> clause;
-            clause.push(~Minisat::mkLit(R[i - 1][0]));
-            clause.push(Minisat::mkLit(R[i][0]));
+            clause.push(~Minisat::mkLit(counterRegisterSet[i - 1][0]));
+            clause.push(Minisat::mkLit(counterRegisterSet[i][0]));
             solver.addClause(clause);
         }
 
         for (int j = 1; j < k; ++j) {
             {
                 Minisat::vec<Minisat::Lit> clause;
-                clause.push(~Minisat::mkLit(relaxation_vars[i]));
-                clause.push(~Minisat::mkLit(R[i - 1][j - 1]));
-                clause.push(Minisat::mkLit(R[i][j]));
+                clause.push(~Minisat::mkLit(relaxationVars[i]));
+                clause.push(~Minisat::mkLit(counterRegisterSet[i - 1][j - 1]));
+                clause.push(Minisat::mkLit(counterRegisterSet[i][j]));
                 solver.addClause(clause);
             }
 
             {
                 Minisat::vec<Minisat::Lit> clause;
-                clause.push(~Minisat::mkLit(R[i - 1][j]));
-                clause.push(Minisat::mkLit(R[i][j]));
+                clause.push(~Minisat::mkLit(counterRegisterSet[i - 1][j]));
+                clause.push(Minisat::mkLit(counterRegisterSet[i][j]));
                 solver.addClause(clause);
             }
         }
 
         {
             Minisat::vec<Minisat::Lit> clause;
-            clause.push(~Minisat::mkLit(relaxation_vars[i]));
-            clause.push(~Minisat::mkLit(R[i - 1][k - 1]));
+            clause.push(~Minisat::mkLit(relaxationVars[i]));
+            clause.push(~Minisat::mkLit(counterRegisterSet[i - 1][k - 1]));
             solver.addClause(clause);
         }
     }
 
     {
         Minisat::vec<Minisat::Lit> clause;
-        clause.push(~Minisat::mkLit(relaxation_vars[n - 1]));
-        clause.push(~Minisat::mkLit(R[n - 2][k - 1]));
+        clause.push(~Minisat::mkLit(relaxationVars[n - 1]));
+        clause.push(~Minisat::mkLit(counterRegisterSet[n - 2][k - 1]));
         solver.addClause(clause);
     }
 }
@@ -147,12 +157,12 @@ void loneliness(
     Minisat::Solver& solver,
     vector<Minisat::Lit> const& neighbors
 ) {
-    vector<vector<Minisat::Lit>> A = P(neighbors, 7);
+    vector<vector<Minisat::Lit>> A = subsetsOfSizeK(neighbors, 7);
     for (auto& subset : A) {
-        Minisat::vec<Minisat::Lit> result;
-        vector_to_MinisatVec(subset, result);
+        Minisat::vec<Minisat::Lit> subset_minisatVec;
+        vector_to_MinisatVec(subset, subset_minisatVec);
 
-        solver.addClause(result);
+        solver.addClause(subset_minisatVec);
     }
 }
 
@@ -161,22 +171,22 @@ void stagnation(
     vector<Minisat::Lit> const& neighbors,
     Minisat::Lit const& cell
 ) {
-    vector<vector<Minisat::Lit>> A = P(neighbors, 2);
+    vector<vector<Minisat::Lit>> A = subsetsOfSizeK(neighbors, 2);
     for (auto& subset : A) {
-        Minisat::vec<Minisat::Lit> result;
-        vector_to_MinisatVec(subset, result);
+        Minisat::vec<Minisat::Lit> subset_minisatVec;
+        vector_to_MinisatVec(subset, subset_minisatVec);
 
         Minisat::vec<Minisat::Lit> clause;
         clause.push(cell);
 
-        for (size_t k = 0; k < result.size(); ++k) {
-            clause.push(~result[k]);
+        for (size_t k = 0; k < subset_minisatVec.size(); ++k) {
+            clause.push(~subset_minisatVec[k]);
         }
 
         Minisat::vec<Minisat::Lit> temp;
         std::unordered_set<int> c_values;
-        for (int i = 0; i < result.size(); ++i) {
-            c_values.insert(result[i].x);
+        for (int i = 0; i < subset_minisatVec.size(); ++i) {
+            c_values.insert(subset_minisatVec[i].x);
         }
         for (int i = 0; i < neighbors.size(); ++i) {
             if (c_values.find(neighbors[i].x)
@@ -196,14 +206,14 @@ void overcrowding(
     Minisat::Solver& solver,
     vector<Minisat::Lit> const& neighbors
 ) {
-    vector<vector<Minisat::Lit>> A = P(neighbors, 4);
+    vector<vector<Minisat::Lit>> A = subsetsOfSizeK(neighbors, 4);
     for (auto& subset : A) {
-        Minisat::vec<Minisat::Lit> result;
-        vector_to_MinisatVec(subset, result);
+        Minisat::vec<Minisat::Lit> subset_minisatVec;
+        vector_to_MinisatVec(subset, subset_minisatVec);
 
         Minisat::vec<Minisat::Lit> clause;
-        for (size_t k = 0; k < result.size(); ++k) {
-            clause.push(~result[k]);
+        for (size_t k = 0; k < subset_minisatVec.size(); ++k) {
+            clause.push(~subset_minisatVec[k]);
         }
         solver.addClause(clause);
     }
@@ -214,22 +224,22 @@ void preservation(
     vector<Minisat::Lit> const& neighbors,
     Minisat::Lit const& cell
 ) {
-    vector<vector<Minisat::Lit>> A = P(neighbors, 2);
+    vector<vector<Minisat::Lit>> A = subsetsOfSizeK(neighbors, 2);
     for (auto& subset : A) {
-        Minisat::vec<Minisat::Lit> result;
-        vector_to_MinisatVec(subset, result);
+        Minisat::vec<Minisat::Lit> subset_minisatVec;
+        vector_to_MinisatVec(subset, subset_minisatVec);
 
         Minisat::vec<Minisat::Lit> clause;
         clause.push(~cell);
 
-        for (size_t k = 0; k < result.size(); ++k) {
-            clause.push(~result[k]);
+        for (size_t k = 0; k < subset_minisatVec.size(); ++k) {
+            clause.push(~subset_minisatVec[k]);
         }
 
         Minisat::vec<Minisat::Lit> temp;
         std::unordered_set<int> c_values;
-        for (int i = 0; i < result.size(); ++i) {
-            c_values.insert(result[i].x);
+        for (int i = 0; i < subset_minisatVec.size(); ++i) {
+            c_values.insert(subset_minisatVec[i].x);
         }
         for (int i = 0; i < neighbors.size(); ++i) {
             if (c_values.find(neighbors[i].x)
@@ -246,21 +256,21 @@ void preservation(
 }
 
 void life(Minisat::Solver& solver, vector<Minisat::Lit> const& neighbors) {
-    vector<vector<Minisat::Lit>> A = P(neighbors, 3);
+    vector<vector<Minisat::Lit>> A = subsetsOfSizeK(neighbors, 3);
     for (auto& subset : A) {
-        Minisat::vec<Minisat::Lit> result;
-        vector_to_MinisatVec(subset, result);
+        Minisat::vec<Minisat::Lit> subset_minisatVec;
+        vector_to_MinisatVec(subset, subset_minisatVec);
 
         Minisat::vec<Minisat::Lit> clause;
 
-        for (size_t k = 0; k < result.size(); ++k) {
-            clause.push(~result[k]);
+        for (size_t k = 0; k < subset_minisatVec.size(); ++k) {
+            clause.push(~subset_minisatVec[k]);
         }
 
         Minisat::vec<Minisat::Lit> temp;
         std::unordered_set<int> c_values;
-        for (int i = 0; i < result.size(); ++i) {
-            c_values.insert(result[i].x);
+        for (int i = 0; i < subset_minisatVec.size(); ++i) {
+            c_values.insert(subset_minisatVec[i].x);
         }
         for (int i = 0; i < neighbors.size(); ++i) {
             if (c_values.find(neighbors[i].x)
@@ -287,25 +297,27 @@ bool solve(
 
     // criarei uma clausula para cada celula que obriga ela a estar morta caso a variavel de relaxamento seja falso.
     // a ideia é ir aumentando a quantidade de variaveis relaxadas até que haja um resultado SAT.
-    vector<Minisat::Var> relaxation_vars;
-    vector<Minisat::Lit> cells_lit;
+    vector<Minisat::Var> relaxationVars;
+    vector<Minisat::Lit> cellsLits;
 
+    // Cria uma variável do MiniSat para cada celula do tabuleiro.
     vector<vector<Minisat::Var>> previous(n, vector<Minisat::Var>(m));
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < m; ++j) {
             previous[i][j] =
                 solver.newVar((i == 0 || i == n - 1 || j == 0 || j == m - 1));
-            relaxation_vars.push_back(solver.newVar(false, false));
-            cells_lit.push_back(Minisat::mkLit(previous[i][j]));
+            relaxationVars.push_back(solver.newVar(false, false));
+            cellsLits.push_back(Minisat::mkLit(previous[i][j]));
         }
     }
 
+    // Cria as clausulas que limitam a quantidade de celulas vivas usando variáveis relaxadas
     vector<Minisat::Lit> relaxation_lits_1;
-    for (auto& var : relaxation_vars) {
+    for (auto& var : relaxationVars) {
         relaxation_lits_1.push_back(Minisat::mkLit(var));
     }
-    addDeadCellsClauseWithRelaxation(solver, cells_lit, relaxation_lits_1, k);
-    limitQntRelaxedClausules(solver, relaxation_vars, k);
+    encodeRelaxedDeadCells(solver, cellsLits, relaxation_lits_1, k);
+    enforceRelaxationBound(solver, relaxationVars, k);
 
     // bordas são todas mortas
     for (size_t i = 0; i < n; ++i) {
@@ -321,7 +333,7 @@ bool solve(
         for (int j = 1; j < m - 1; ++j) {
             Minisat::Lit cell = Minisat::mkLit(previous[i][j]);
 
-            // Soma dos vizinhos no passado
+            // Cria um conjunto com os vizinhos da celula atual
             vector<Minisat::Lit> neighbors;
             for (int di = -1; di <= 1; ++di) {
                 for (int dj = -1; dj <= 1; ++dj) {
@@ -376,6 +388,7 @@ int main(void) {
     m += 2; // adiciona as bordas
 
     std::map<int, vector<vector<int>>> resultBoards;
+    addUnsatResult(n, m, resultBoards);
 
     vector<vector<int>> board(n, vector<int>(m, 0));
     for (int i = 1; i < n - 1; ++i) {
@@ -399,17 +412,16 @@ int main(void) {
 
     if (best != -1) {
         cerr << "valor ideal é " << best << "\n";
-
-        cout << n - 2 << " " << m - 2 << endl;
-        for (int i = 1; i < n - 1; ++i) { // Ignorar bordas
-            for (int j = 1; j < m - 1; ++j) {
-                cout << resultBoards[best][i][j] << " ";
-            }
-            cout << endl;
-        }
     } else {
         cerr << "Nenhuma solução encontrada para qualquer valor de t.\n";
-        return -1;
+    }
+
+    cout << n - 2 << " " << m - 2 << endl;
+    for (int i = 1; i < n - 1; ++i) { // Ignorar bordas
+        for (int j = 1; j < m - 1; ++j) {
+            cout << resultBoards[best][i][j] << " ";
+        }
+        cout << endl;
     }
 
     return 0;
