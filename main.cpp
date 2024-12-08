@@ -53,8 +53,13 @@ void addDeadCellsClauseWithRelaxation(Minisat::Solver& solver, vector<Minisat::L
 void limitQntRelaxedClausules(Minisat::Solver& solver, vector<Minisat::Var> const& relaxation_vars, int k){
     int n = relaxation_vars.size();
 
-    vector<vector<Minisat::Var>> R(n, vector<Minisat::Var>(k, solver.newVar()));
-
+    vector<vector<Minisat::Var>> R(n);
+    for(int i=0; i<n; ++i){
+        R[i].resize(k);
+        for(int j=0; j<k; ++j){
+            R[i][j] = solver.newVar();
+        }
+    }
 
     printf("começando\n");
 
@@ -112,6 +117,7 @@ void limitQntRelaxedClausules(Minisat::Solver& solver, vector<Minisat::Var> cons
     }
 
     printf("regra 5 pronta\n");
+
 
 }
 
@@ -269,7 +275,7 @@ int main(void){
 
     printf("Ponto 1\n");
 
-    limitQntRelaxedClausules(solver, relaxation_vars, 6);
+    limitQntRelaxedClausules(solver, relaxation_vars, 3);
 
     printf("Ponto 2\n");
 
