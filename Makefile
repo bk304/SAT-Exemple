@@ -20,7 +20,7 @@ JOGO_OBJECTS = $(patsubst %.cc,$(OBJ_DIR)/%.o,$(JOGO_SOURCES))
 $(info $(OBJECTS))
 
 CC = g++
-CFLAGS = -I. -I$(MINI_DIR) -I$(SRC_DIR) -fpermissive
+CFLAGS = -I. -I$(MINI_DIR) -I$(SRC_DIR) -fpermissive -O3
 
 all: $(SOLV_EXE) $(JOGO_EXE)
 
@@ -33,6 +33,9 @@ $(JOGO_EXE): $(JOGO_OBJECTS)
 $(OBJ_DIR)/%.o: %.cc
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+clean:
+	rm -rf $(BIN_DIR)
 
 .PHONY: all clean
 .SUFFIXES:
