@@ -339,7 +339,7 @@ bool solve(vector<vector<int>>& board, int k, bool printResult) {
         }
     }
 
-    printf("Resolvendo... k= %d\n", k);
+    cerr << "Resolvendo... k= " << k << "\n";
 
     bool result = solver.solve();
 
@@ -358,7 +358,7 @@ bool solve(vector<vector<int>>& board, int k, bool printResult) {
                 cout << endl;
             }
         } else {
-            cout << "Nenhuma solução encontrada para qualquer valor de t.\n";
+            cerr << "Nenhuma solução encontrada para qualquer valor de t.\n";
         }
     }
 
@@ -391,7 +391,7 @@ int main(void) {
         }
     }
 
-    cout << "valor ideal é " << best << "\n";
+    cerr << "valor ideal é " << best << "\n";
     solve(board, best, true);
 
     return 0;
