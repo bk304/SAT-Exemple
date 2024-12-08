@@ -20,7 +20,7 @@ JOGO_OBJECTS = $(patsubst %.cc,$(OBJ_DIR)/%.o,$(JOGO_SOURCES))
 $(info $(OBJECTS))
 
 CC = g++
-CFLAGS = -I. -I$(MINI_DIR) -I$(SRC_DIR) -fpermissive -O3
+CFLAGS = -I. -I$(MINI_DIR) -I$(SRC_DIR) -fpermissive -O3 -g0 -march=native
 
 all: $(SOLV_EXE) $(JOGO_EXE)
 

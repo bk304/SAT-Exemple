@@ -78,7 +78,7 @@ void limitQntRelaxedClausules(
     for (int i = 0; i < n; ++i) {
         R[i].resize(k);
         for (int j = 0; j < k; ++j) {
-            R[i][j] = solver.newVar();
+            R[i][j] = solver.newVar(false, true);
         }
     }
 
@@ -289,8 +289,9 @@ bool solve(vector<vector<int>>& board, int k, bool printResult) {
     vector<vector<Minisat::Var>> previous(n, vector<Minisat::Var>(m));
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < m; ++j) {
-            previous[i][j] = solver.newVar();
-            relaxation_vars.push_back(solver.newVar());
+            previous[i][j] =
+                solver.newVar((i == 0 || i == n - 1 || j == 0 || j == m - 1));
+            relaxation_vars.push_back(solver.newVar(false, false));
             cells_lit.push_back(Minisat::mkLit(previous[i][j]));
         }
     }
@@ -338,6 +339,8 @@ bool solve(vector<vector<int>>& board, int k, bool printResult) {
             }
         }
     }
+
+    solver.simplify();
 
     cerr << "Resolvendo... k= " << k << "\n";
 
